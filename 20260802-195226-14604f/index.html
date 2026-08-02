@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>写真一枚から、AIに縦型動画を作らせて売るまでの手引き</title>
+<style>
+:root{
+  --kami:#F2F2F0;        /* 紙（ページの地） */
+  --shiro:#FFFFFF;       /* 白（面・カード） */
+  --sumi:#17191C;        /* 墨（本文） */
+  --sumi-usu:#4A4E54;    /* 薄墨（副文） */
+  --hai:#6A6E74;         /* 灰（注釈・ラベル／白地で約5.1対1） */
+  --keisen:#DCDCD7;      /* 罫線 */
+  --keisen-usu:#E8E8E4;
+  --ai:#1C3D63;          /* 藍（差し色1） */
+  --ai-usu:#E7EBF1;
+  --shu:#C24634;         /* 朱（差し色2） */
+  --shu-usu:#F6E8E5;
+
+  --gothic:"Hiragino Kaku Gothic ProN","ヒラギノ角ゴ ProN W3","Hiragino Sans","ヒラギノ角ゴシック","Yu Gothic Medium","Noto Sans JP","Meiryo",sans-serif;
+  --mincho:"Hiragino Mincho ProN","ヒラギノ明朝 ProN","Yu Mincho","Noto Serif JP",serif;
+  --tou:"SFMono-Regular","SF Mono",Menlo,Consolas,"Hiragino Kaku Gothic ProN","Noto Sans JP",monospace;
+}
+
+*{box-sizing:border-box;}
+html{background:var(--kami);-webkit-text-size-adjust:100%;}
+body{margin:0;background:var(--kami);color:var(--sumi);font-family:var(--gothic);
+     font-size:16px;line-height:1.95;letter-spacing:.04em;font-feature-settings:"palt" 1;
+     word-break:keep-all;overflow-wrap:break-word;}
+
+.oya{max-width:600px;margin:0 auto;background:var(--kami);position:relative;overflow:hidden;}
+.ku{padding:0 24px;}
+@media (min-width:680px){ .ku{padding:0 44px;} }
+
+.susumi{position:fixed;top:0;left:0;width:0;height:2px;background:var(--shu);z-index:9999;}
+
+.deru{opacity:0;transform:translateY(14px);transition:opacity .7s ease,transform .7s ease;}
+.deru.kita{opacity:1;transform:none;}
+
+.b{display:inline-block;}
+
+/* ── 表紙 ───────────────────────────── */
+.hyoushi{padding-top:72px;padding-bottom:8px;}
+.kigou{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 30px;padding:0;list-style:none;}
+.kigou li{font-family:var(--tou);font-size:13px;letter-spacing:.06em;color:var(--ai);
+  background:var(--shiro);border:1px solid var(--keisen);padding:5px 11px;}
+h1{font-size:29px;line-height:1.62;font-weight:600;letter-spacing:.01em;margin:0 0 22px;}
+.hyoushi-sub{font-size:14px;line-height:2.05;color:var(--sumi-usu);margin:0;}
+.hyoushi-shita{display:flex;align-items:center;gap:18px;margin-top:34px;
+  border-top:1px solid var(--keisen);padding-top:22px;}
+.hanko{font-family:var(--mincho);font-size:13px;letter-spacing:.2em;color:var(--shu);
+  border:1px solid var(--shu);background:var(--shiro);padding:9px 12px 9px 16px;
+  transform:rotate(-4deg);white-space:nowrap;}
+.hyoushi-kazu{font-family:var(--mincho);font-size:13px;letter-spacing:.1em;color:var(--hai);line-height:1.85;}
+
+/* ── 共通見出し ─────────────────────── */
+.medama{display:flex;align-items:center;gap:10px;margin:0 0 16px;
+  font-family:var(--mincho);font-size:13px;letter-spacing:.32em;color:var(--ai);}
+.medama::before{content:"";display:block;width:22px;height:1px;background:var(--shu);flex:none;}
+.midashi{font-size:24px;line-height:1.68;font-weight:600;letter-spacing:.01em;margin:0 0 20px;}
+.komidashi{font-size:19px;line-height:1.72;font-weight:600;margin:38px 0 14px;
+  padding-left:13px;border-left:2px solid var(--ai);}
+.honbun{margin:0 0 15px;font-size:15.5px;line-height:2.05;}
+.rido{color:var(--sumi-usu);}
+.chusyaku,.chui{font-size:12.5px;line-height:1.9;color:var(--hai);}
+.chui{margin:28px 0 0;padding-top:13px;border-top:1px dashed var(--keisen);}
+.hikidashi{font-family:var(--mincho);font-size:15px;line-height:1.9;color:var(--shu);
+  margin:16px 0 0;padding-left:14px;border-left:2px solid var(--shu-usu);}
+
+/* ── もくじ ─────────────────────────── */
+.mokuji{padding-top:60px;}
+.mokuji-ichiran{margin:22px 0 0;border-top:1px solid var(--keisen);}
+.mokuji-ichiran a{display:flex;gap:14px;align-items:baseline;padding:13px 2px;
+  border-bottom:1px solid var(--keisen-usu);text-decoration:none;color:var(--sumi);font-size:14.5px;line-height:1.8;}
+.mokuji-ban{font-family:var(--mincho);font-size:13px;color:var(--ai);letter-spacing:.08em;
+  min-width:2.6em;flex:none;}
+
+/* ── 章 ─────────────────────────────── */
+.shou{padding-top:62px;}
+.shou-bangou{font-family:var(--mincho);font-size:34px;line-height:1;color:var(--ai);
+  letter-spacing:.06em;margin:0;}
+.shou-obi{margin:14px 0 22px;padding-top:10px;border-top:1px solid var(--sumi);
+  font-family:var(--mincho);font-size:12px;letter-spacing:.3em;color:var(--hai);}
+
+/* ── 札・見本 ───────────────────────── */
+.fuda{background:var(--shiro);border:1px solid var(--keisen);padding:16px 18px;margin:18px 0;
+  font-size:14.5px;line-height:1.95;}
+.fuda-kaku{border-left:3px solid var(--ai);}
+.fuda-shu{border-left:3px solid var(--shu);}
+.fuda-mi{font-family:var(--mincho);font-size:13px;letter-spacing:.14em;color:var(--ai);margin:0 0 8px;}
+.mihon{font-family:var(--tou);font-size:13px;line-height:1.95;letter-spacing:0;color:var(--sumi);
+  background:var(--shiro);border:1px solid var(--keisen);padding:16px;margin:14px 0 0;
+  white-space:pre-wrap;}
+
+/* 図版の中と見本は、日本語の自然な折り返しを許す（横にはみ出させない） */
+.mihon,.kurabe-hako,.zu-mi,.zu-shita,.tenpure-mei,.fuda,
+.rou-mi,.rou-setu,.michi-mi,.michi-setu,.tana-mi,.tana-setu,
+.tsumi-mi,.tsumi-setu,.kekka-mi,.kekka-setu,.hayami-migi,
+.hyou-yaku,.hi-mi,.hi-setu,.shippai-mi,.shippai-setu{
+  word-break:normal;overflow-wrap:break-word;line-break:strict;}
+
+/* ── 図版の外枠 ─────────────────────── */
+.zu{background:var(--shiro);border:1px solid var(--keisen);padding:20px 16px;margin:26px 0;}
+@media (min-width:680px){ .zu{padding:26px 24px;} }
+.zu-mi{font-size:15px;font-weight:600;line-height:1.75;margin:0 0 16px;
+  padding-bottom:12px;border-bottom:1px solid var(--keisen-usu);}
+.zu-shita{font-size:12.5px;line-height:1.95;color:var(--hai);margin:18px 0 0;
+  padding-top:13px;border-top:1px solid var(--keisen-usu);}
+.zu .chui{margin:10px 0 0;padding-top:0;border-top:0;}
+
+/* 差し込む画像は、白い面に載せて幅いっぱいに */
+img{display:block;width:100%;height:auto;background:var(--shiro);
+  border:1px solid var(--keisen);margin:26px 0 0;}
+
+/* 漏斗 */
+.rou-dan{border:1px solid var(--keisen);background:var(--kami);padding:11px 10px;margin:0 auto;}
+.rou-dan.d1{width:100%;} .rou-dan.d2{width:82%;} .rou-dan.d3{width:64%;} .rou-dan.d4{width:56%;min-width:0;}
+.rou-ya{text-align:center;color:var(--shu);font-size:13px;line-height:1.6;margin:5px 0;}
+.rou-mi{font-size:13.5px;font-weight:600;display:block;}
+.rou-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.8;display:block;}
+
+/* 分かれ道 */
+.michi-gyou{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--keisen-usu);}
+.michi-gyou:last-of-type{border-bottom:0;}
+.michi-fuda{font-family:var(--mincho);font-size:14px;color:var(--ai);border:1px solid var(--keisen);
+  background:var(--kami);width:32px;height:32px;line-height:30px;text-align:center;flex:none;}
+.michi-mi{font-size:14px;font-weight:600;display:block;line-height:1.7;}
+.michi-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.85;display:block;}
+.michi-atari{border:1px solid var(--shu);background:var(--shu-usu);padding:12px;margin-top:8px;}
+.michi-atari .michi-fuda{border-color:var(--shu);color:var(--shu);background:var(--shiro);}
+
+/* 棚 */
+.tana{border-left:2px solid var(--ai);padding-left:14px;margin:0 0 4px;}
+.tana-shu{border-left-color:var(--shu);}
+.tana-kumi{font-family:var(--mincho);font-size:12.5px;letter-spacing:.16em;color:var(--hai);margin:0 0 8px;}
+.tana-gyou{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid var(--keisen-usu);}
+.tana-gyou:last-child{border-bottom:0;}
+.tana-ki{font-family:var(--mincho);font-size:14px;color:var(--ai);flex:none;width:1.6em;}
+.tana-shu .tana-ki{color:var(--shu);}
+.tana-mi{font-size:14px;font-weight:600;display:block;line-height:1.7;}
+.tana-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.85;display:block;}
+.tana-aida{height:22px;}
+.tana-wake{margin:18px 0 9px;padding-top:14px;border-top:1px solid var(--keisen);}
+
+/* 積み上げ */
+.tsumi-dan{display:flex;gap:12px;align-items:flex-start;border:1px solid var(--keisen);
+  background:var(--kami);padding:12px 13px;margin:0 0 6px;}
+.tsumi-ki{font-family:var(--mincho);font-size:15px;color:var(--shiro);background:var(--ai);
+  width:28px;height:28px;line-height:28px;text-align:center;flex:none;}
+.tsumi-mi{font-size:14px;font-weight:600;margin:0;line-height:1.7;}
+.tsumi-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.85;margin:0;}
+.tsumi-shirushi{font-family:var(--mincho);font-size:12.5px;letter-spacing:.16em;color:var(--ai);margin:18px 0 0;}
+
+/* 二段比べ */
+.kurabe-kumi{margin:0 0 22px;}
+.kurabe-kumi:last-of-type{margin-bottom:0;}
+.kurabe-daimei{font-family:var(--mincho);font-size:12.5px;letter-spacing:.16em;color:var(--hai);margin:0 0 9px;}
+.kurabe-hako{border:1px solid var(--keisen);background:var(--kami);padding:13px 14px;
+  font-family:var(--tou);font-size:13px;line-height:1.9;letter-spacing:0;}
+.kurabe-fuda{display:block;font-family:var(--mincho);font-size:12px;letter-spacing:.14em;
+  color:var(--hai);margin-bottom:6px;}
+.kurabe-ya{text-align:center;color:var(--shu);font-size:13px;margin:6px 0;}
+.kurabe-ato{border:1px solid var(--ai);background:var(--shiro);}
+.kurabe-ato .kurabe-fuda{color:var(--ai);}
+
+/* 比較の表 */
+.kekka-gyou{display:flex;gap:11px;padding:11px 0;border-bottom:1px solid var(--keisen-usu);}
+.kekka-gyou:last-of-type{border-bottom:0;}
+.kekka-ki{font-family:var(--mincho);font-size:14px;color:var(--shu);flex:none;width:1.8em;}
+.kekka-mi{font-size:14px;font-weight:600;display:block;line-height:1.7;}
+.kekka-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.85;display:block;}
+
+/* 早見表 */
+.hayami-gyou{display:flex;gap:13px;padding:11px 0;border-bottom:1px solid var(--keisen-usu);}
+.hayami-gyou:last-of-type{border-bottom:0;}
+.hayami-hidari{font-family:var(--mincho);font-size:14px;color:var(--ai);flex:none;width:1.6em;}
+.hayami-migi{font-size:13.5px;line-height:1.85;}
+.hayami-kotae{font-family:var(--tou);font-size:12.5px;color:#A93A2A;display:inline-block;
+  border:1px solid var(--shu-usu);background:var(--shu-usu);padding:1px 7px;margin-left:6px;letter-spacing:0;}
+
+/* 一覧の表 */
+.kumi-mi{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+  font-family:var(--mincho);font-size:13px;letter-spacing:.12em;color:var(--ai);
+  background:var(--ai-usu);padding:8px 11px;margin:20px 0 4px;}
+.kumi-mi:first-of-type{margin-top:0;}
+.kumi-kazu{font-size:12px;color:var(--hai);letter-spacing:.06em;flex:none;}
+.hyou-gyou{display:flex;gap:11px;padding:9px 2px;border-bottom:1px solid var(--keisen-usu);}
+.hyou-gyou:last-of-type{border-bottom:0;}
+.hyou-ki{font-family:var(--tou);font-size:12.5px;color:var(--shu);flex:none;width:6em;
+  letter-spacing:0;line-height:1.85;word-break:break-all;}
+.hyou-yaku{font-size:12.5px;line-height:1.85;color:var(--sumi-usu);}
+.hyou-yaku b{font-size:13.5px;color:var(--sumi);display:block;font-weight:600;}
+
+/* 日ごと */
+.hi-gyou{display:flex;gap:14px;padding:12px 0;border-bottom:1px solid var(--keisen-usu);}
+.hi-gyou:last-of-type{border-bottom:0;}
+.hi-hi{font-family:var(--mincho);font-size:14px;color:var(--ai);flex:none;width:3.4em;
+  border-right:1px solid var(--keisen);padding-right:12px;line-height:1.7;}
+.hi-mi{font-size:14px;font-weight:600;display:block;line-height:1.7;}
+.hi-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.85;display:block;}
+
+/* 失敗の点 */
+.shippai-gyou{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid var(--keisen-usu);}
+.shippai-gyou:last-of-type{border-bottom:0;}
+.shippai-ban{font-family:var(--mincho);font-size:16px;color:var(--shu);flex:none;width:1.6em;line-height:1.6;}
+.shippai-mi{font-size:14px;font-weight:600;display:block;line-height:1.7;}
+.shippai-setu{font-size:12.5px;color:var(--sumi-usu);line-height:1.85;display:block;}
+
+/* ── テンプレ集・実践計画 ───────────── */
+.hako-kumi{padding-top:62px;}
+.tenpure-mei{font-size:12.5px;color:var(--hai);margin:0;line-height:1.8;}
+
+/* ── 締めくくり ─────────────────────── */
+.shime{background:var(--ai);color:var(--shiro);padding:60px 24px 66px;margin-top:70px;}
+@media (min-width:680px){ .shime{padding:66px 44px 72px;} }
+.shime .medama{color:var(--shiro);}
+.shime .midashi{color:var(--shiro);}
+.shime .honbun{color:#E4E8EE;}
+.shime-katari{font-family:var(--mincho);font-size:16px;line-height:2.1;color:var(--shiro);
+  margin:26px 0 0;padding-top:22px;border-top:1px solid rgba(255,255,255,.28);}
+.tsugi{border:1px solid rgba(255,255,255,.34);padding:18px;margin:30px 0 0;}
+.tsugi-mi{font-family:var(--mincho);font-size:13px;letter-spacing:.16em;color:var(--shiro);margin:0 0 8px;}
+.tsugi-honbun{font-size:13.5px;line-height:1.95;color:#E4E8EE;margin:0;}
+.boro{display:block;background:var(--shu);color:var(--shiro);text-decoration:none;text-align:center;
+  padding:19px 14px;font-size:16px;font-weight:600;letter-spacing:.08em;margin:28px 0 12px;}
+.boro-soe{font-size:12.5px;line-height:1.9;color:#C9D2DE;text-align:center;margin:0;}
+.owari{height:40px;}
+
+@media (prefers-reduced-motion:reduce){
+  *{animation:none !important;transition:none !important;}
+  .deru{opacity:1;transform:none;}
+}
+</style>
+<noscript><style>.deru{opacity:1;transform:none;}</style></noscript>
+<style id="cta-inactive-style">a[data-cta-inactive]{background:none!important;background-color:transparent!important;border:none!important;box-shadow:none!important;border-radius:0!important;color:inherit!important;cursor:default!important;text-decoration:none!important;padding:0!important;display:inline!important;font-weight:inherit!important;letter-spacing:inherit!important;pointer-events:none;}</style></head>
+<body>
+
+<div class="susumi" id="susumi"></div>
+
+<div class="oya">
+<main>
+
+<!-- 表紙 -->
+<header class="ku hyoushi">
+  <ul class="kigou deru">
+    <li>＃</li><li>「 」</li><li>【 】</li><li>写真一枚</li>
+  </ul>
+  <!--HERO_IMAGE-->
+  <h1 class="deru"><span class="b">写真一枚から、</span><span class="b">AIに縦型動画を</span><span class="b">作らせて売るまでの</span><span class="b">手引き</span></h1>
+  <p class="hyoushi-sub deru"><span class="b">動画編集の経験がなくても、</span><span class="b">手元の写真が一枚あれば</span><span class="b">今夜から始められます。</span><span class="b">近所のお店の宣伝動画を</span><span class="b">代わりに作るまでを、</span><span class="b">順番に並べました。</span></p>
+  <div class="hyoushi-shita deru">
+    <div class="hanko">保存推奨</div>
+    <div class="hyoushi-kazu"><span class="b">全十一章</span><span class="b">／読み終わり 約十三分</span></div>
+  </div>
+</header>
+
+<!-- もくじ -->
+<nav class="ku mokuji deru">
+  <p class="medama">もくじ</p>
+  <h2 class="midashi"><span class="b">この十一章を</span><span class="b">読み終えると、</span><span class="b">思っていたのと違う</span><span class="b">映像が出てきて</span><span class="b">直し方が分からない、</span><span class="b">という行き止まりが</span><span class="b">消えます。</span></h2>
+  <div class="mokuji-ichiran">
+    <a href="#shou1"><span class="mokuji-ban">一</span><span class="b">写真を一枚選ぶところから</span></a>
+    <a href="#shou2"><span class="mokuji-ban">二</span><span class="b">考えるAIに手足をつなぐ</span></a>
+    <a href="#shou3"><span class="mokuji-ban">三</span><span class="b">つなぎ込みは五分で終わる</span></a>
+    <a href="#shou4"><span class="mokuji-ban">四</span><span class="b">仕上がりは写真で半分決まる</span></a>
+    <a href="#shou5"><span class="mokuji-ban">五</span><span class="b">指示文は五段積むだけ</span></a>
+    <a href="#shou6"><span class="mokuji-ban">六</span><span class="b">記号はAIへの標識になる</span></a>
+    <a href="#shou7"><span class="mokuji-ban">七</span><span class="b">「おしゃれに」を数字に直す</span></a>
+    <a href="#shou8"><span class="mokuji-ban">八</span><span class="b">直しは残す場所から伝える</span></a>
+    <a href="#shou9"><span class="mokuji-ban">九</span><span class="b">三本出して一本を選ぶ</span></a>
+    <a href="#shou10"><span class="mokuji-ban">十</span><span class="b">見本を先に渡して声をかける</span></a>
+    <a href="#shou11"><span class="mokuji-ban">十一</span><span class="b">七日で入口まで立つ</span></a>
+  </div>
+</nav>
+
+<!-- 一章 -->
+<article class="ku shou" data-chapter="1" id="shou1">
+  <p class="shou-bangou deru">01</p>
+  <p class="shou-obi deru">まず全体の話</p>
+  <h2 class="midashi deru"><span class="b">動画づくりの入口は、</span><span class="b">撮影ではなく、</span><span class="b">写真を一枚選ぶ</span><span class="b">ところにあります。</span></h2>
+  <p class="honbun rido deru"><span class="b">手が止まるのは、</span><span class="b">どのサイトをどう繋ぐのかが</span><span class="b">分からないままだからです。</span><span class="b">ここでは入口から入金までを、</span><span class="b">一本の道として並べました。</span></p>
+
+  <!--IMG_1-->
+  <div class="zu deru" data-zu="michi">
+    <p class="zu-mi">入口から入金までの、六つの道のり</p>
+    <div class="michi-gyou"><div class="michi-fuda">一</div><div><span class="michi-mi">道具をつなぐ</span><span class="michi-setu">AIに、動画をつくる道具を差し込む</span></div></div>
+    <div class="michi-gyou"><div class="michi-fuda">二</div><div><span class="michi-mi">写真を選ぶ</span><span class="michi-setu">背景の静かな一枚を手元から選ぶ</span></div></div>
+    <div class="michi-gyou"><div class="michi-fuda">三</div><div><span class="michi-mi">指示を書く</span><span class="michi-setu">五段の型に沿って上から埋める</span></div></div>
+    <div class="michi-gyou"><div class="michi-fuda">四</div><div><span class="michi-mi">三本を見る</span><span class="michi-setu">切り口違いを並べ、一本を選ぶ</span></div></div>
+    <div class="michi-gyou"><div class="michi-fuda">五</div><div><span class="michi-mi">直して仕上げる</span><span class="michi-setu">残す点を先に伝え、一箇所だけ直す</span></div></div>
+    <div class="michi-gyou michi-atari"><div class="michi-fuda">六</div><div><span class="michi-mi">見本で声をかける</span><span class="michi-setu">近所の店へ、出来上がった実物を渡す</span></div></div>
+    <p class="zu-shita"><span class="b">上から順に進むだけで、</span><span class="b">入口から代金の受け取りまでが</span><span class="b">一続きになります。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">進め方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">どの段も三十分あれば進みます。</span><span class="b">今日はどの段にいるのかだけを、</span><span class="b">先に決めてください。</span></p>
+  <p class="hikidashi deru"><span class="b">今いる段に印をつけると、</span><span class="b">迷子にならない。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">平日の夜に進める場面では、</span><span class="b">こう変わる</span></h3>
+  <p class="honbun deru"><span class="b">平日の夜は指示文を整えるだけ、</span><span class="b">休日に生成と声かけをまとめる。</span><span class="b">撮影に出向かないので、</span><span class="b">移動の時間がいりません。</span></p>
+  <p class="chui deru"><span class="b">※金額や秒数は、</span><span class="b">考え方を示すための例です。</span><span class="b">自分の作業時間に合わせて</span><span class="b">決め直してください。</span></p>
+</article>
+
+<!-- 二章 -->
+<article class="ku shou" data-chapter="2" id="shou2">
+  <p class="shou-bangou deru">02</p>
+  <p class="shou-obi deru">道具のはなし</p>
+  <h2 class="midashi deru"><span class="b">動画の道具をつなぐと、</span><span class="b">考えるだけだった</span><span class="b">AIに手足が生えます。</span></h2>
+  <p class="honbun rido deru"><span class="b">これまでのAIは、</span><span class="b">文章を考える頭の役目だけでした。</span><span class="b">動画をつくるサービスを繋ぐと、</span><span class="b">映像の書き出しまで任せられます。</span></p>
+
+  <!--IMG_2-->
+  <div class="zu deru" data-zu="rou">
+    <p class="zu-mi">頭と手足が、一本の線でつながる</p>
+    <div class="rou-dan d1"><span class="rou-mi">外側｜あなたの役目</span><span class="rou-setu">写真を選び、狙いを決め、良し悪しを決める</span></div>
+    <p class="rou-ya">▼</p>
+    <div class="rou-dan d2"><span class="rou-mi">上の階｜考える頭</span><span class="rou-setu">構成、読み上げる言葉、切り口を決める</span></div>
+    <p class="rou-ya">▼</p>
+    <div class="rou-dan d3"><span class="rou-mi">つなぎ目｜差込口</span><span class="rou-setu">リンクを一本、貼るだけ</span></div>
+    <p class="rou-ya">▼</p>
+    <div class="rou-dan d4"><span class="rou-mi">下の階｜手足</span><span class="rou-setu">縦型の映像を書き出す</span></div>
+    <p class="zu-shita"><span class="b">別々だった頭と手足が、</span><span class="b">一本のリンクでつながります。</span><span class="b">あなたの仕事は、</span><span class="b">指示と判断だけに絞られます。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">仕組みは、これだけ</h3>
+  <p class="honbun deru"><span class="b">AIと外部のサービスをつなぐ</span><span class="b">共通の差込口があり、</span><span class="b">対応しているサービスなら</span><span class="b">同じやり方で差し込めます。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">専門用語が出てきた場面では、</span><span class="b">こう読み替える</span></h3>
+  <p class="honbun deru"><span class="b">MCPは「道具をつなぐ差込口」、</span><span class="b">コネクターは「接続先を登録する画面」。</span><span class="b">中の仕組みは、</span><span class="b">分からなくても困りません。</span></p>
+  <p class="hikidashi deru"><span class="b">用語は覚えず、</span><span class="b">役割だけ覚える。</span></p>
+  <p class="chui deru"><span class="b">※画面の名前や置き場所は、</span><span class="b">更新されることがあります。</span><span class="b">見つからないときは、</span><span class="b">公式の案内で確かめてください。</span></p>
+</article>
+
+<!-- 三章 -->
+<article class="ku shou" data-chapter="3" id="shou3">
+  <p class="shou-bangou deru">03</p>
+  <p class="shou-obi deru">つなぎ込み</p>
+  <h2 class="midashi deru"><span class="b">つなぎ込みは、</span><span class="b">リンクを一本</span><span class="b">コピーして貼るだけで</span><span class="b">終わります。</span></h2>
+  <p class="honbun rido deru"><span class="b">最初の関門に見えますが、</span><span class="b">作業は五分ほどです。</span><span class="b">片方でリンクを写し取り、</span><span class="b">もう片方に貼る。それだけです。</span></p>
+
+  <!--IMG_3-->
+  <div class="zu deru" data-zu="hayami">
+    <p class="zu-mi">つなぐまでの、五つの動き</p>
+    <div class="hayami-gyou"><div class="hayami-hidari">一</div><div class="hayami-migi">動画をつくるサービスに登録し、連携用の頁を開く<span class="hayami-kotae">開く</span></div></div>
+    <div class="hayami-gyou"><div class="hayami-hidari">二</div><div class="hayami-migi">そこに出ている接続用のリンクを写し取る<span class="hayami-kotae">写す</span></div></div>
+    <div class="hayami-gyou"><div class="hayami-hidari">三</div><div class="hayami-migi">AIの設定を開き、コネクターの欄を選ぶ<span class="hayami-kotae">選ぶ</span></div></div>
+    <div class="hayami-gyou"><div class="hayami-hidari">四</div><div class="hayami-migi">接続先を追加する欄に貼り付けて保存する<span class="hayami-kotae">貼る</span></div></div>
+    <div class="hayami-gyou"><div class="hayami-hidari">五</div><div class="hayami-migi">許可を求める画面は、求められている中身（写真の読み取り／動画の書き出し）を確かめてから許可<span class="hayami-kotae">読む</span></div></div>
+    <p class="zu-shita"><span class="b">判断が要るのは、</span><span class="b">最後の許可だけです。</span><span class="b">残りは、写して貼る作業に過ぎません。</span></p>
+  </div>
+
+  <div class="fuda fuda-kaku deru">
+    <p class="fuda-mi">接続先が見つからないとき</p>
+    <p class="honbun" style="margin:0;"><span class="b">AIの設定にある</span><span class="b">コネクターの一覧を開き、</span><span class="b">動画生成に対応した接続先を探します。</span><span class="b">見つからないときは、</span><span class="b">「動画 生成 接続」で検索します。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">手順は、これだけ</h3>
+  <p class="honbun deru"><span class="b">貼り終えたら、</span><span class="b">会話の画面で一言だけ聞きます。</span><span class="b">道具の名前が返ってくれば、</span><span class="b">つながっています。</span></p>
+  <div class="mihon deru">今、動画をつくる道具は使える状態ですか。
+使えるなら、道具の名前を教えてください。</div>
+  <p class="hikidashi deru"><span class="b">返事が返らなければ、</span><span class="b">設定画面に戻る。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">うまく繋がらない場面では、</span><span class="b">こう確かめる</span></h3>
+  <p class="honbun deru"><span class="b">多くは、リンクの写し漏れか、</span><span class="b">許可の押し忘れです。</span><span class="b">設定画面を開き、</span><span class="b">接続先が一覧に残っているかを見ます。</span></p>
+  <p class="chui deru"><span class="b">※生成には使える回数の枠があります。</span><span class="b">雑に試すほど、</span><span class="b">材料が減っていくと考えてください。</span></p>
+</article>
+
+<!-- 四章 -->
+<article class="ku shou" data-chapter="4" id="shou4">
+  <p class="shou-bangou deru">04</p>
+  <p class="shou-obi deru">写真の選び方</p>
+  <h2 class="midashi deru"><span class="b">仕上がりの半分は、</span><span class="b">指示文ではなく、</span><span class="b">選んだ写真一枚で</span><span class="b">決まります。</span></h2>
+  <p class="honbun rido deru"><span class="b">同じ指示文を渡しても、</span><span class="b">写真が違えば結果は変わります。</span><span class="b">生活用品が写り込んだ一枚は、</span><span class="b">言葉を足しても濁ったままです。</span></p>
+
+  <!--IMG_4-->
+  <div class="zu deru" data-zu="tana">
+    <p class="zu-mi">使える写真と、避けたい写真</p>
+    <div class="tana">
+      <p class="tana-kumi">選ぶ　四つの条件</p>
+      <div class="tana-gyou"><div class="tana-ki">一</div><div><span class="tana-mi">背景が静か</span><span class="tana-setu">壁や机だけが写っている</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">二</div><div><span class="tana-mi">正面から</span><span class="tana-setu">商品の形が素直に分かる</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">三</div><div><span class="tana-mi">影がやわらかい</span><span class="tana-setu">輪郭が黒くつぶれていない</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">四</div><div><span class="tana-mi">大きく写る</span><span class="tana-setu">画面の半分を商品が占める</span></div></div>
+    </div>
+    <div class="tana-aida"></div>
+    <div class="tana tana-shu">
+      <p class="tana-kumi">避ける　四つの条件</p>
+      <div class="tana-gyou"><div class="tana-ki">一</div><div><span class="tana-mi">写り込み</span><span class="tana-setu">洗剤や書類が背景にある</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">二</div><div><span class="tana-mi">強い影</span><span class="tana-setu">画面の半分が暗く沈む</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">三</div><div><span class="tana-mi">文字が乗る</span><span class="tana-setu">値札や宣伝文字が入っている</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">四</div><div><span class="tana-mi">遠すぎる</span><span class="tana-setu">商品が豆粒ほどしかない</span></div></div>
+    </div>
+    <p class="zu-shita"><span class="b">上の四つに当てはまる一枚を選びます。</span><span class="b">下の四つは言葉で直そうとせず、</span><span class="b">別の写真に替えるのが近道です。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">選び方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">商品が画面の半分以上を占める写真だけ残し、</span><span class="b">その中から背景がいちばん静かな一枚を</span><span class="b">選べば足ります。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">お店から写真をもらう場面では、</span><span class="b">こう頼む</span></h3>
+  <p class="honbun deru"><span class="b">枚数と条件を数字で伝えると、</span><span class="b">使える写真が届きます。</span><span class="b">三枚あれば、良い一枚を選べます。</span></p>
+  <div class="mihon deru">商品だけが大きく写っている、明るい写真を三枚お送りください。
+加工前のものだと、より自然に仕上がります。</div>
+  <p class="hikidashi deru"><span class="b">枚数を言わないと、</span><span class="b">一枚しか届かない。</span></p>
+</article>
+
+<!-- 五章 -->
+<article class="ku shou" data-chapter="5" id="shou5">
+  <p class="shou-bangou deru">05</p>
+  <p class="shou-obi deru">指示の型</p>
+  <h2 class="midashi deru"><span class="b">答えがズレるのは、</span><span class="b">質問の中身ではなく</span><span class="b">「渡し方」のせいです。</span></h2>
+  <p class="honbun rido deru"><span class="b">思っていたのと違う映像が出るとき、</span><span class="b">たいていは言葉が足りていません。</span><span class="b">AIは空白を想像で埋めるので、</span><span class="b">書かなかった部分がズレになります。</span></p>
+
+  <!--IMG_5-->
+  <div class="zu deru" data-zu="tsumi" data-tsumi="指示文の組み立て">
+    <p class="zu-mi">この順に積むだけで、指示文は完成します。</p>
+    <div class="tsumi">
+      <div class="tsumi-dan" data-tsumi-dan><div class="tsumi-ki">一</div><div><p class="tsumi-mi">役割を渡す</p><p class="tsumi-setu">誰として考えてほしいかを一行で</p></div></div>
+      <div class="tsumi-dan" data-tsumi-dan><div class="tsumi-ki">二</div><div><p class="tsumi-mi">素材を説明する</p><p class="tsumi-setu">何が写っているか、値段や場所を事実だけ</p></div></div>
+      <div class="tsumi-dan" data-tsumi-dan><div class="tsumi-ki">三</div><div><p class="tsumi-mi">狙いを書く</p><p class="tsumi-setu">見る人は誰か、見終わってどうなってほしいか</p></div></div>
+      <div class="tsumi-dan" data-tsumi-dan><div class="tsumi-ki">四</div><div><p class="tsumi-mi">画を指定する</p><p class="tsumi-setu">光、寄りか引きか、動き、最初の一秒</p></div></div>
+      <div class="tsumi-dan" data-tsumi-dan><div class="tsumi-ki">五</div><div><p class="tsumi-mi">出し方を決める</p><p class="tsumi-setu">画面の形、秒数、本数、言葉の書き方</p></div></div>
+    </div>
+    <p class="tsumi-shirushi">積んだ結果、こうなります</p>
+    <div class="mihon" data-tsumi-kansei>あなたは縦型ショート動画の構成を担当する制作者です。
+
+＃ 素材
+- 焙煎所の珈琲豆、一袋千二百円。
+
+＃ 狙い
+- 平日の朝に自宅で珈琲を淹れる三十代へ。
+
+＃ 画の指定
+- 自然光、寄り気味、手持ち風の揺れ。
+- 最初の一秒は、豆の袋を画面いっぱいに。
+
+＃ 出し方
+【縦九対十六、十五秒、字幕あり】
+- 切り口違いを三本、読み上げる言葉は「」で囲む。</div>
+    <p class="zu-shita"><span class="b">一段でも抜けると、</span><span class="b">そこをAIが想像で埋めます。</span><span class="b">上から順に積むだけで、</span><span class="b">三本が同じ方向に揃います。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">積み方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">上から順に書くだけで、</span><span class="b">並べ替える必要はありません。</span><span class="b">慣れれば三分で書き終わります。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">埋められない段がある場面では、</span><span class="b">こう書く</span></h3>
+  <p class="honbun deru"><span class="b">空欄のままにすると、</span><span class="b">そこが勝手に埋まります。</span><span class="b">決めていないと書けば、</span><span class="b">AIが選択肢のほうを出します。</span></p>
+  <div class="mihon deru">狙いはまだ決めていません。
+見る人の候補を二案、理由を添えて出してください。</div>
+</article>
+
+<!-- 六章 -->
+<article class="ku shou" data-chapter="6" id="shou6">
+  <p class="shou-bangou deru">06</p>
+  <p class="shou-obi deru">言葉の一覧</p>
+  <h2 class="midashi deru"><span class="b">記号は飾りではなく、</span><span class="b">AIに道を示す標識です。</span></h2>
+  <p class="honbun rido deru"><span class="b">＃や「」は、</span><span class="b">見た目を整える飾りではありません。</span><span class="b">ここで話題が変わる、</span><span class="b">ここは変えないでほしい、</span><span class="b">という道しるべです。</span></p>
+
+  <!--IMG_6-->
+  <div class="zu deru" data-zu="hyou" data-hyou="指示と映像の言葉の一覧">
+    <p class="zu-mi">書きながら引ける、言葉の一覧</p>
+
+    <div class="kumi-mi">一　指示文で使う記号<span class="kumi-kazu">八個</span></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">＃</div><div class="hyou-yaku"><b>大きな区切り</b>話の変わり目に置く</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">##</div><div class="hyou-yaku"><b>中を小分けする</b>素材と狙いを仕分ける</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">-</div><div class="hyou-yaku"><b>条件を並べる</b>一行にひとつ</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">1. 2. 3.</div><div class="hyou-yaku"><b>順番を示す</b>流れや手順に</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">「 」</div><div class="hyou-yaku"><b>読み上げる言葉</b>変えるなの合図</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">【 】</div><div class="hyou-yaku"><b>外せない条件</b>秒数や画面の形に</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">---</div><div class="hyou-yaku"><b>前後を切り離す</b>素材と依頼の境目</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">＞</div><div class="hyou-yaku"><b>参考に見せるだけ</b>まねしたい言い回し</div></div>
+
+    <div class="kumi-mi">二　動画の切り口<span class="kumi-kazu">八個</span></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">悩み出し</div><div class="hyou-yaku">最初の一秒で困りごとを言い切る</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">前と後</div><div class="hyou-yaku">変化を二画面で見せる</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">三手順</div><div class="hyou-yaku">使い方を三つに絞る</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">開封</div><div class="hyou-yaku">包みを開ける流れだけで見せる</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">比べる</div><div class="hyou-yaku">似た二つを並べ、値段の理由を示す</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">口コミ風</div><div class="hyou-yaku">感想の形で語る。実在の声だけ</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">数字で言う</div><div class="hyou-yaku">分数や個数を前に出す</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">季節と行事</div><div class="hyou-yaku">月ごとの催しに寄せる</div></div>
+
+    <div class="kumi-mi">三　映像の見え方を指定する言葉<span class="kumi-kazu">八個</span></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">寄り</div><div class="hyou-yaku">画面いっぱいに。最初の一秒に</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">引き</div><div class="hyou-yaku">周りごと映す。店の雰囲気に</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">俯瞰</div><div class="hyou-yaku">真上から。並べた品や作業机に</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">自然光</div><div class="hyou-yaku">窓の光。食べ物や布の色が出る</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">逆光</div><div class="hyou-yaku">背後から光。輪郭が浮き映える</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">スロー</div><div class="hyou-yaku">ゆっくり見せる。湯気や液体に</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">手持ち風</div><div class="hyou-yaku">小さな揺れ。個人の投稿に近づく</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">頭と尾</div><div class="hyou-yaku">冒頭と末尾を同じ画に。繰り返し再生に強い</div></div>
+
+    <div class="kumi-mi">四　仕事として受けるときの確認<span class="kumi-kazu">七個</span></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">掲載先</div><div class="hyou-yaku">どこに出すか。長さも形も変わる</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">長さ</div><div class="hyou-yaku">十五秒か三十秒か。後から伸ばせない</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">画面の形</div><div class="hyou-yaku">縦型だけか、正方形も要るか</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">ロゴ</div><div class="hyou-yaku">入れるなら画像を先に受け取る</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">禁止の言葉</div><div class="hyou-yaku">業種ごとの決まりを相手に聞く</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">納期と回数</div><div class="hyou-yaku">何日までに何回かを文字で残す</div></div>
+    <div class="hyou-gyou" data-hyou-gyou><div class="hyou-ki">写真の権利</div><div class="hyou-yaku">他人が撮った写真は許可が要る</div></div>
+
+    <p class="zu-shita"><span class="b">上の二つは指示文の書き方、</span><span class="b">下の二つは映像と仕事の言葉です。</span><span class="b">書きながら、この一覧だけを見返します。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">使い方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">＃で話題を区切り、</span><span class="b">「」で読み上げる言葉を固定し、</span><span class="b">【】で外したくない条件を囲む。</span><span class="b">残りは見返すだけで足ります。</span></p>
+  <p class="hikidashi deru"><span class="b">記号は三つだけ、</span><span class="b">覚えれば足りる。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">切り口に迷う場面では、</span><span class="b">こう選ぶ</span></h3>
+  <p class="honbun deru"><span class="b">見た目の変化が大きいなら「前と後」、</span><span class="b">使い方が伝わりにくいなら「三手順」。</span><span class="b">切り口を替えるだけで、</span><span class="b">別の動画になります。</span></p>
+</article>
+
+<!-- 七章 -->
+<article class="ku shou" data-chapter="7" id="shou7">
+  <p class="shou-bangou deru">07</p>
+  <p class="shou-obi deru">言い換えの練習</p>
+  <h2 class="midashi deru"><span class="b">「おしゃれに」は</span><span class="b">指示ではなく、</span><span class="b">ただの感想です。</span></h2>
+  <p class="honbun rido deru"><span class="b">おしゃれに、いい感じに。</span><span class="b">どれも好みの表明であって、</span><span class="b">相手に渡せる情報ではありません。</span><span class="b">だからAIは、</span><span class="b">平均的な絵を返してきます。</span></p>
+
+  <!--IMG_7-->
+  <div class="zu deru" data-zu="kurabe">
+    <p class="zu-mi">感想を、数えられる言葉に翻訳する</p>
+
+    <div class="kurabe-kumi" data-kurabe="写真の雰囲気を伝える">
+      <p class="kurabe-daimei">写真の雰囲気を伝える</p>
+      <div class="kurabe-hako"><span class="kurabe-fuda">直す前</span>この写真、いい感じにおしゃれにしてください。</div>
+      <p class="kurabe-ya">▼</p>
+      <div class="kurabe-hako kurabe-ato"><span class="kurabe-fuda">直したあと</span>ここで言う「おしゃれ」は三つです。余白は画面の四割以上。動きは一本につき一種類だけ。色は白、生成り、木の色の三色まで。</div>
+    </div>
+
+    <div class="kurabe-kumi" data-kurabe="読み上げる言葉を決める">
+      <p class="kurabe-daimei">読み上げる言葉を決める</p>
+      <div class="kurabe-hako"><span class="kurabe-fuda">直す前</span>商品の良さが伝わるナレーションを入れてください。</div>
+      <p class="kurabe-ya">▼</p>
+      <div class="kurabe-hako kurabe-ato"><span class="kurabe-fuda">直したあと</span>読み上げる言葉は次の三行だけ。一字も変えないでください。「朝、二分。」「豆から挽く時間だけ、静かになる。」「◯◯焙煎所、駅から徒歩三分。」一行につき一画面、合計十五秒に。</div>
+    </div>
+
+    <p class="zu-shita"><span class="b">下の箱はどちらも、</span><span class="b">数えられる言葉に置き換わっています。</span><span class="b">数字が入った瞬間に、</span><span class="b">同じ絵を思い浮かべられます。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">言い換え方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">余白、動きの数、色数、音。</span><span class="b">この四つのうち三つ以下を</span><span class="b">数字で指定すれば伝わります。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">言葉が出てこない場面では、</span><span class="b">こう探す</span></h3>
+  <p class="honbun deru"><span class="b">好きな動画を一本開いて、</span><span class="b">余白の広さと色の数を数えます。</span><span class="b">数えた結果を書けば、</span><span class="b">それがもう指示文です。</span></p>
+  <p class="hikidashi deru"><span class="b">好みは、</span><span class="b">数えれば言葉になる。</span></p>
+</article>
+
+<!-- 八章 -->
+<article class="ku shou" data-chapter="8" id="shou8">
+  <p class="shou-bangou deru">08</p>
+  <p class="shou-obi deru">直しの作法</p>
+  <h2 class="midashi deru"><span class="b">「全部やり直して」と</span><span class="b">言った瞬間に、</span><span class="b">当たっていた部分まで</span><span class="b">壊れます。</span></h2>
+  <p class="honbun rido deru"><span class="b">出てきた三本のうち、</span><span class="b">一本は惜しいところまで来ています。</span><span class="b">そこで全部を作り直させると、</span><span class="b">良かった冒頭まで消えます。</span></p>
+
+  <!--IMG_8-->
+  <div class="zu deru" data-zu="kurabe">
+    <p class="zu-mi">直しをお願いする、たった三行</p>
+    <div class="kurabe-kumi" data-kurabe="二本目を直したい">
+      <p class="kurabe-daimei">二本目を直したい</p>
+      <div class="kurabe-hako"><span class="kurabe-fuda">直す前</span>なんか違うので、全部やり直してください。</div>
+      <p class="kurabe-ya">▼</p>
+      <div class="kurabe-hako kurabe-ato"><span class="kurabe-fuda">直したあと</span>二本目だけ直してください。良かった点は、最初の一秒で商品が画面いっぱいに映っていることです。ここは残してください。直したい点は、後半の字幕が多すぎることです。一画面あたり十二文字までに。それ以外は変えないでください。</div>
+    </div>
+    <p class="zu-shita"><span class="b">良かった点、直す点、</span><span class="b">それ以外は変えない。</span><span class="b">この三行だけで、</span><span class="b">往復は二回ほどで収まります。</span></p>
+  </div>
+
+  <!--IMG_9-->
+  <div class="zu deru" data-zu="shippai">
+    <p class="zu-mi">先に知っておきたい、七つのつまずき</p>
+    <div class="shippai-gyou"><div class="shippai-ban">一</div><div><span class="shippai-mi">いきなり五十本頼む</span><span class="shippai-setu">土台が無いまま量を出すと、外れが五十本並ぶ</span></div></div>
+    <div class="shippai-gyou"><div class="shippai-ban">二</div><div><span class="shippai-mi">感想を渡す</span><span class="shippai-setu">好みの表明では伝わらない。数に置き換える</span></div></div>
+    <div class="shippai-gyou"><div class="shippai-ban">三</div><div><span class="shippai-mi">全部やり直しと言う</span><span class="shippai-setu">当たっていた冒頭まで作り直される</span></div></div>
+    <div class="shippai-gyou"><div class="shippai-ban">四</div><div><span class="shippai-mi">写真選びを軽く見る</span><span class="shippai-setu">写り込みや強い影は、言葉では消えない</span></div></div>
+    <div class="shippai-gyou"><div class="shippai-ban">五</div><div><span class="shippai-mi">枠を気にせず生成する</span><span class="shippai-setu">回数には上限がある。雑な試行ほど減る</span></div></div>
+    <div class="shippai-gyou"><div class="shippai-ban">六</div><div><span class="shippai-mi">規約を見ずに納品する</span><span class="shippai-setu">商用の可否は契約で違う。受注前に読む</span></div></div>
+    <div class="shippai-gyou"><div class="shippai-ban">七</div><div><span class="shippai-mi">値段を濁す</span><span class="shippai-setu">先送りを生み、連絡が途絶える</span></div></div>
+    <p class="zu-shita"><span class="b">どれも一度はやります。</span><span class="b">先に読んでおくと、</span><span class="b">止まっている時間が短くなります。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">直し方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">直す点は、一度に一つだけ。</span><span class="b">二つ以上まとめて言うと、</span><span class="b">片方が崩れる往復が始まります。</span></p>
+  <p class="hikidashi deru"><span class="b">残す場所を先に言う。</span><span class="b">それだけで壊れない。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">二回目でも直らない場面では、</span><span class="b">こう戻す</span></h3>
+  <p class="honbun deru"><span class="b">三回目に進まず、</span><span class="b">良かった一本まで戻します。</span><span class="b">積み重ねた指示どうしが</span><span class="b">矛盾していることが多いからです。</span></p>
+</article>
+
+<!-- 九章 -->
+<article class="ku shou" data-chapter="9" id="shou9">
+  <p class="shou-bangou deru">09</p>
+  <p class="shou-obi deru">本数の考え方</p>
+  <h2 class="midashi deru"><span class="b">本数は、</span><span class="b">当てるためではなく、</span><span class="b">外れを早く</span><span class="b">見つけるために出します。</span></h2>
+  <p class="honbun rido deru"><span class="b">いきなり五十本頼むと、</span><span class="b">外れが五十本並ぶだけです。</span><span class="b">まず三本、切り口だけを替えて出し、</span><span class="b">良かった一本を選びます。</span></p>
+
+  <!--IMG_10-->
+  <div class="zu deru" data-zu="kekka">
+    <p class="zu-mi">三本から八本へ、広げ方</p>
+    <div class="kekka-gyou"><div class="kekka-ki">一</div><div><span class="kekka-mi">はじめに｜三本出す</span><span class="kekka-setu">悩み出し、前と後、三手順</span></div></div>
+    <div class="kekka-gyou"><div class="kekka-ki">二</div><div><span class="kekka-mi">選ぶ｜一本を決める</span><span class="kekka-setu">良いと思った理由を三つ書く</span></div></div>
+    <div class="kekka-gyou"><div class="kekka-ki">三</div><div><span class="kekka-mi">言葉にする｜理由を足す</span><span class="kekka-setu">次の指示の材料はここから出る</span></div></div>
+    <div class="kekka-gyou"><div class="kekka-ki">四</div><div><span class="kekka-mi">広げる｜土台のまま五本</span><span class="kekka-setu">替えるのは切り口だけ</span></div></div>
+    <div class="kekka-gyou"><div class="kekka-ki">五</div><div><span class="kekka-mi">確かめる｜最初の三秒</span><span class="kekka-setu">どこで指が動いたかを残す</span></div></div>
+    <div class="kekka-gyou"><div class="kekka-ki">六</div><div><span class="kekka-mi">残す｜当たりをメモ</span><span class="kekka-setu">次のお店でも同じ型が使える</span></div></div>
+    <p class="zu-shita"><span class="b">三本、一本、五本。</span><span class="b">この並びで進めると、</span><span class="b">無駄になる生成が減ります。</span><span class="b">数は、選ぶための材料です。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">並べ方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">同じ商品、同じ写真のまま、</span><span class="b">切り口だけを替えます。</span><span class="b">変える場所を一つに絞ると、</span><span class="b">何が効いたのかが見えます。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">自分の投稿で試す場面では、</span><span class="b">こう見る</span></h3>
+  <p class="honbun deru"><span class="b">自分のアカウントに出して、</span><span class="b">最初の三秒でどれだけ離れたかを見ます。</span><span class="b">数字が小さいうちは、</span><span class="b">切り口を替えて出し続けます。</span></p>
+  <p class="hikidashi deru"><span class="b">当たった切り口は、</span><span class="b">次の店でも効く。</span></p>
+</article>
+
+<!-- 十章 -->
+<article class="ku shou" data-chapter="10" id="shou10">
+  <p class="shou-bangou deru">10</p>
+  <p class="shou-obi deru">届け方</p>
+  <h2 class="midashi deru"><span class="b">見本を先に渡すと、</span><span class="b">商談は「やるか」ではなく</span><span class="b">「どれにするか」に</span><span class="b">変わります。</span></h2>
+  <p class="honbun rido deru"><span class="b">交渉が苦手でも、</span><span class="b">実物があれば話は早く進みます。</span><span class="b">歩いて行ける個人店を十軒書き出し、</span><span class="b">三軒に見本を作ってから声をかけます。</span></p>
+
+  <!--IMG_11-->
+  <div class="zu deru" data-zu="kurabe">
+    <p class="zu-mi">はじめての声かけ</p>
+    <div class="kurabe-kumi" data-kurabe="近所のお店に初めて連絡する">
+      <p class="kurabe-daimei">近所のお店に初めて連絡する</p>
+      <div class="kurabe-hako"><span class="kurabe-fuda">直す前</span>はじめまして。AIで動画を作れます。よかったら作りませんか。お安くできます。</div>
+      <p class="kurabe-ya">▼</p>
+      <div class="kurabe-hako kurabe-ato"><span class="kurabe-fuda">直したあと</span>はじめまして。◯◯町に住む△△と申します。店頭に並ぶ焼き菓子の見た目が素敵だと思っていました。勝手ながら、公式の写真から縦型の紹介動画を一本作ってみました。撮影に伺う必要はなく、お手持ちの一枚から作れます。ご不要でしたら、読み流してください。</div>
+    </div>
+    <p class="zu-shita"><span class="b">売り込みが、</span><span class="b">出来上がった実物に変わります。</span><span class="b">相手は判断するだけでよく、</span><span class="b">断る負担も軽くなります。</span></p>
+    <p class="chui"><span class="b">※見本はお店に見せるためだけに使い、</span><span class="b">自分の投稿には公開しません。</span><span class="b">お断りされたら、</span><span class="b">その場で消してください。</span></p>
+  </div>
+
+  <!--IMG_12-->
+  <div class="zu deru" data-zu="tana">
+    <p class="zu-mi">料金は、三つの段で用意する</p>
+    <div class="tana">
+      <div class="tana-gyou"><div class="tana-ki">一</div><div><span class="tana-mi">お試し一本｜八千円</span><span class="tana-setu">修正一回まで、納期五日</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">二</div><div><span class="tana-mi">月四本｜二万八千円</span><span class="tana-setu">修正各一回、毎週金曜に納品</span></div></div>
+      <div class="tana-gyou"><div class="tana-ki">三</div><div><span class="tana-mi">月八本｜五万円</span><span class="tana-setu">修正各二回、縦型と正方形の両方</span></div></div>
+    </div>
+    <p class="tana-kumi tana-wake">三段に共通すること</p>
+    <div class="tana tana-shu">
+      <div class="tana-gyou"><div><span class="tana-mi">写真はお店から</span><span class="tana-setu">撮影に伺わず、手持ちの一枚から</span></div></div>
+      <div class="tana-gyou"><div><span class="tana-mi">一本あたりの原価</span><span class="tana-setu">月の利用料 ÷ その月に作れる本数</span></div></div>
+    </div>
+    <p class="chusyaku" style="margin:14px 0 0;"><span class="b">月に払う利用料を、</span><span class="b">その月に作れる本数で割ると、</span><span class="b">一本あたりの原価が出ます。</span><span class="b">値段は、その三倍を目安に決めます。</span></p>
+    <p class="zu-shita"><span class="b">「ご相談ください」を消して、</span><span class="b">選ぶだけの形にします。</span><span class="b">修正回数と納期を先に書くと、</span><span class="b">作業が増える事故も防げます。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">渡し方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">会って渡せる店は店頭で、</span><span class="b">そうでない店は問い合わせ先に、</span><span class="b">動画のありかを添えた短い文を送ります。</span></p>
+  <p class="hikidashi deru"><span class="b">褒める点は、</span><span class="b">自分が実際に</span><span class="b">見たものだけ書く。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">仕事として受ける場面では、</span><span class="b">こう確かめる</span></h3>
+  <p class="honbun deru"><span class="b">掲載先、長さ、画面の形、ロゴ、</span><span class="b">使えない言い回し、納期と修正回数、</span><span class="b">写真の権利。この七つを、</span><span class="b">最初のやり取りで文字にして残します。</span></p>
+  <p class="chui deru"><span class="b">※商用で使えるかどうかは、</span><span class="b">契約している内容によって違います。</span><span class="b">受注前に規約と写真の出どころを、</span><span class="b">自分の目で確かめてください。</span></p>
+</article>
+
+<!-- 十一章 -->
+<article class="ku shou" data-chapter="11" id="shou11">
+  <p class="shou-bangou deru">11</p>
+  <p class="shou-obi deru">七日の計画</p>
+  <h2 class="midashi deru"><span class="b">七日あれば、</span><span class="b">副業の入口までは</span><span class="b">立てます。</span></h2>
+  <p class="honbun rido deru"><span class="b">必要なのは、</span><span class="b">平日の夜三十分と、</span><span class="b">休日の二時間ほどです。</span><span class="b">七日目には見本を持って、</span><span class="b">声をかけているはずです。</span></p>
+
+  <!--IMG_13-->
+  <div class="zu deru" data-zu="hi">
+    <p class="zu-mi">七日間の、時間の割り振り</p>
+    <div class="hi-gyou"><div class="hi-hi">一日</div><div><span class="hi-mi">夜三十分</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">二日</div><div><span class="hi-mi">夜四十分</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">三日</div><div><span class="hi-mi">夜三十分</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">四日</div><div><span class="hi-mi">夜二十分</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">五日</div><div><span class="hi-mi">夜三十分</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">六日</div><div><span class="hi-mi">休日二時間</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">七日</div><div><span class="hi-mi">休日一時間</span></div></div>
+    <p class="zu-shita"><span class="b">休日にまとめるより、</span><span class="b">毎日一段ずつが</span><span class="b">早く着きます。</span></p>
+  </div>
+
+  <h3 class="komidashi deru">進め方は、これだけ</h3>
+  <p class="honbun deru"><span class="b">一日に一段だけ進めます。</span><span class="b">終わらなかった段は翌日に片づけ、</span><span class="b">全体の並びは崩しません。</span></p>
+
+  <h3 class="komidashi deru"><span class="b">二週目に入る場面では、</span><span class="b">こう回す</span></h3>
+  <p class="honbun deru"><span class="b">二週目からは、</span><span class="b">五日目と六日目だけを繰り返します。</span><span class="b">書き出し、見本、送信。</span><span class="b">この三つが回りはじめると、</span><span class="b">声をかけられる相手が増えます。</span></p>
+  <p class="hikidashi deru"><span class="b">回すのは、</span><span class="b">書き出し・見本・送信の</span><span class="b">三つだけ。</span></p>
+</article>
+
+<!-- テンプレ集 -->
+<section class="ku hako-kumi deru">
+  <p class="medama">そのまま使える型</p>
+  <h2 class="midashi"><span class="b">三つの型を写すだけで、</span><span class="b">今夜の作業は</span><span class="b">始められます。</span></h2>
+
+  <h3 class="komidashi">一　動画をつくるときの基本指示</h3>
+  <p class="tenpure-mei">五段積みの雛形。{ }を入れ替えて使います。</p>
+  <div class="mihon">あなたは、縦型ショート動画の構成と映像指示を担当する制作者です。
+
+＃ 素材
+- 添付した写真は{商品名}です。
+- 価格は{価格}、販売場所は{場所}です。
+
+＃ 狙い
+- 見る人は{年代と状況}の人です。
+- 見終わったあと{してほしい行動}になってほしいです。
+
+＃ 画の指定
+- {光の種類}、{寄りか引きか}、{動きの種類}。
+- 最初の一秒に{映すもの}を大きく映してください。
+
+＃ 出し方
+【縦九対十六、{秒数}秒、字幕あり】
+- 切り口の違う案を{本数}本、読み上げる言葉は「」で囲んでください。</div>
+  <p class="chusyaku"><span class="b">埋められない段は空欄にせず、</span><span class="b">決めていないので二案出してください、</span><span class="b">と書き添えます。</span></p>
+
+  <h3 class="komidashi">二　直しをお願いするときの三行</h3>
+  <p class="tenpure-mei">残す点を先に、直す点をあとに書きます。</p>
+  <div class="mihon">{番号}本目だけ直してください。
+良かった点は{残したい部分}です。ここは変えないでください。
+直したい点は{直す部分}です。{どう直すか}にしてください。
+それ以外は一切変えないでください。</div>
+  <p class="chusyaku"><span class="b">直す点は一度に一つだけ。</span><span class="b">二つ以上まとめると、</span><span class="b">片方が崩れる往復が始まります。</span></p>
+
+  <h3 class="komidashi">三　近所のお店に送る、最初の連絡</h3>
+  <p class="tenpure-mei">見本のありかを添えて、短く送ります。</p>
+  <div class="mihon">はじめまして。{地域名}に住んでいる{名前}と申します。
+いつも{ほめる点}が素敵だと思っていました。
+勝手ながら、{写真の出どころ}から紹介動画を一本作ってみました。（{見本のありか}）
+撮影に伺う必要はなく、お手持ちの写真一枚から作れます。
+ご興味があれば、切り口の違うものをあと二本お作りします。</div>
+  <p class="chusyaku"><span class="b">ほめる点には、</span><span class="b">自分が実際に見たものだけを書きます。</span><span class="b">誰にでも当てはまる言葉は、</span><span class="b">送信済みの営業文だと見抜かれます。</span></p>
+</section>
+
+<!-- 七日間の実践計画 -->
+<section class="ku hako-kumi deru">
+  <p class="medama">七日の実践</p>
+  <h2 class="midashi"><span class="b">今夜から七日、</span><span class="b">この順に手を</span><span class="b">動かしてください。</span></h2>
+  <!--IMG_14-->
+  <div class="zu deru" data-zu="hi">
+    <p class="zu-mi">一日ずつの、やることの中身</p>
+    <div class="hi-gyou"><div class="hi-hi">一日</div><div><span class="hi-mi">つなぎ込み</span><span class="hi-setu">接続リンクを貼り、使える状態かを一言で確かめる</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">二日</div><div><span class="hi-mi">初回の三本</span><span class="hi-setu">自宅の物を一枚撮り、五段積みで三本つくる</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">三日</div><div><span class="hi-mi">直しの練習</span><span class="hi-setu">残す点と直す点を分けた三行で頼んでみる</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">四日</div><div><span class="hi-mi">型の固定</span><span class="hi-setu">うまくいった指示文を、差し替えるだけの雛形に</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">五日</div><div><span class="hi-mi">見込み先の書き出し</span><span class="hi-setu">歩いて行ける個人店を十軒。更新が止まる店に印</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">六日</div><div><span class="hi-mi">見本づくり</span><span class="hi-setu">印をつけた三軒に、一本ずつ見本をつくる</span></div></div>
+    <div class="hi-gyou"><div class="hi-hi">七日</div><div><span class="hi-mi">声かけと料金の用意</span><span class="hi-setu">三軒に連絡文を送り、三段の料金表を整える</span></div></div>
+    <p class="zu-shita"><span class="b">七日目に届くのは、</span><span class="b">上手な動画ではなく、</span><span class="b">見てもらえる一本と、</span><span class="b">値段の書かれた紙です。</span></p>
+  </div>
+  <div class="fuda fuda-shu deru">
+    <p class="fuda-mi">進まない日があったら</p>
+    <p class="honbun" style="margin:0;"><span class="b">その日を飛ばさず、</span><span class="b">翌日に同じ段から続けてください。</span><span class="b">並びさえ守れば、</span><span class="b">遅れは取り返せます。</span></p>
+  </div>
+</section>
+
+<!-- 締めくくり -->
+<section class="shime deru">
+  <p class="medama">おわりに</p>
+  <h2 class="midashi"><span class="b">上手くなってから</span><span class="b">動くのではなく、</span><span class="b">届けながら</span><span class="b">上手くなってください。</span></h2>
+  <p class="honbun"><span class="b">ここまでの十一章に、</span><span class="b">特別な才能が要る段は</span><span class="b">ひとつもありませんでした。</span><span class="b">写真を一枚選び、五段の型で渡し、</span><span class="b">残す場所を言葉にして直す。</span><span class="b">それだけです。</span></p>
+  <p class="honbun"><span class="b">差がつくのは技術ではなく、</span><span class="b">三本目でやめずに</span><span class="b">近所の一軒へ見本を渡せるかどうかです。</span><span class="b">今夜は、つなぎ込みの一段で足ります。</span></p>
+  <p class="shime-katari"><span class="b">あなたが夜に使った三十分は、</span><span class="b">まだ誰にも見つかっていないお店の良さを、</span><span class="b">明日それを知る人の画面まで</span><span class="b">運んでいきます。</span></p>
+  <div class="tsugi">
+    <p class="tsugi-mi">次に届けたいこと</p>
+    <p class="tsugi-honbun"><span class="b">指示文の型は、</span><span class="b">動画以外の仕事にも持ち込めます。</span><span class="b">使えた言い回しや、</span><span class="b">外れた指示の直し方を、</span><span class="b">日々の投稿で配っています。</span></p>
+  </div>
+  <a class="boro" data-cta="main" data-cta-inactive="1">アカウントをフォロー</a>
+  <p class="boro-soe"><span class="b">この手引きの続きと、</span><span class="b">更新された画面の見つけ方は、</span><span class="b">投稿でお知らせします。</span></p>
+</section>
+
+<div class="owari"></div>
+
+</main>
+</div>
+
+<script>
+(function(){
+  var bar = document.getElementById('susumi');
+  if (bar) {
+    var nuru = function(){
+      var doc = document.documentElement;
+      var takasa = doc.scrollHeight - window.innerHeight;
+      var wari = takasa > 0 ? (window.pageYOffset || doc.scrollTop) / takasa : 0;
+      if (wari < 0) { wari = 0; }
+      if (wari > 1) { wari = 1; }
+      bar.style.width = (wari * 100).toFixed(2) + '%';
+    };
+    window.addEventListener('scroll', nuru, {passive:true});
+    window.addEventListener('resize', nuru, {passive:true});
+    nuru();
+  }
+
+  var mato = document.querySelectorAll('.deru');
+  var i;
+  var shizuka = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (shizuka || !('IntersectionObserver' in window)) {
+    for (i = 0; i < mato.length; i++) { mato[i].classList.add('kita'); }
+    return;
+  }
+
+  var miharu = new IntersectionObserver(function(kumi, jishin){
+    for (var n = 0; n < kumi.length; n++) {
+      if (kumi[n].isIntersecting) {
+        kumi[n].target.classList.add('kita');
+        jishin.unobserve(kumi[n].target);
+      }
+    }
+  }, {rootMargin: '0px 0px -8% 0px', threshold: 0.08});
+
+  for (i = 0; i < mato.length; i++) { miharu.observe(mato[i]); }
+})();
+</script>
+
+</body>
+</html>
